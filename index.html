@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>Rayus</title>
+        
+    </head>
+    
+    <body>
+        <script type="text/javascript" src="./bundle.js"></script>
+        <canvas width="1024" height="480" id="rayCanvas"></canvas>
+        
+        <br/>
+        
+        <b>JSON Map Import:</b><br/>
+        <textarea rows="3" cols="105" id="jsonin"></textarea>
+        <button onclick="main(JSON.parse(document.getElementById('jsonin').value));">Import JSON</button>
+        shadow = <span id="shadow"></span>
+    </body>
+</html>

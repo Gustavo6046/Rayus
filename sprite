@@ -1,0 +1,2 @@
+printf "data:image/png;base64," >$1.b64
+openssl base64 <$1.png | tr -d '\n' >>$1.b64
