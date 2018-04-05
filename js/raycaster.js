@@ -133,35 +133,6 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
     var nextProx = null;
     var screenDists = [];
     
-    var spritesToRender = [];
-        
-    for ( let i = 0; i < sprites.length; i++ )
-    {
-        let sprite = sprites[i];
-        let offs = geom.point.sub(sprite.pos, camPos);
-        let depth = geom.point.len(offs);
-        let ang = Math.atan2(offs.y, offs.x);
-        let distance = geom.point.len(offs);
-        
-        let screenSprite = Object.from(sprite);
-        
-        if ( sprite.relPos.y > 0.1 )
-        {
-            screenSprite.relPos = geom.point.mul(geom.point.fromAngle(ang - camAngle), geom.point.len(offs))
-            screenSprite.renderX = Math.round(screenSprite.relPos.x / screenSprite.relPos.y / Math.tan(fov / 2));
-            
-            if ( screenDists[renderX] > distance )
-            {
-                screenSprite.scale = sprite.size * canvas.height / distance;
-                screenSprite.distance = distance;
-                
-                spritesToRender.push(screenSprite);
-            }
-        }
-    }
-    
-    spritesToRender.sort(function (a, b) { return a.distance - b.distance; });
-    
     for ( let x = 0; x < canvas.width; x++ )
     {
         let ang = rayAngle(camAngle, x, fov * (canvas.width / canvas.height), canvas.width);
@@ -203,7 +174,7 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
                 let wsize = Math.round(curLine.height * canvas.height / curDist);
                 let startY = Math.floor(canvas.height / 2 - wsize / 2) - camPos.z;
                 
-                let proxBright = geom.point.len(geom.point.sub(camPos, curInter)).clamp(0, 1.2) / 1.2;
+                let proxBright = geom.point.len(geom.point.sub(camPos, curInter)).clamp(0, 2.75) / 2.75;
                 let bright = (Math.abs(geom.point.dot(geom.lineSeg.normalTo(curLine, camPos), { x: 1, y: 0 })) * 0.7 + 0.3) * proxBright * (1 - (curDist / darkDist)).clamp(0, 1);
                 
                 if ( nextProx == null )
@@ -226,17 +197,44 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
                 ctx.stroke();
                 
                 // for opacity
-                /*
                 ctx.beginPath();
                 ctx.moveTo(x, startY);
                 ctx.lineTo(x, startY + wsize);
-                ctx.strokeStyle = "#" + colorHex(color[0]) + colorHex(color[1]) + colorHex(color[2]) + colorHex(1 - between(nearFog, farFog, curDist));
+                ctx.strokeStyle = "#" + colorHex(color[0]) + colorHex(color[1]) + colorHex(color[2]) + colorHex((fog * 1.5).clamp(0, 1));
                 ctx.lineWidth = 1;
                 ctx.stroke();
-                */
             }
         }
-    }    
+    }
+    
+    var spritesToRender = [];
+        
+    for ( let i = 0; i < sprites.length; i++ )
+    {
+        let sprite = sprites[i];
+        let offs = geom.point.sub(sprite.pos, camPos);
+        let depth = geom.point.len(offs);
+        let ang = Math.atan2(offs.y, offs.x);
+        let distance = geom.point.len(offs);
+        
+        let screenSprite = Object.from(sprite);
+        
+        if ( sprite.relPos.y > 0.1 )
+        {
+            screenSprite.relPos = geom.point.mul(geom.point.fromAngle(ang - camAngle), geom.point.len(offs))
+            screenSprite.renderX = Math.round(screenSprite.relPos.y / screenSprite.relPos.x / Math.tan(fov / 2));
+            
+            if ( screenDists[renderX] > distance )
+            {
+                screenSprite.scale = sprite.size * canvas.height / distance;
+                screenSprite.distance = distance;
+                
+                spritesToRender.push(screenSprite);
+            }
+        }
+    }
+    
+    spritesToRender.sort(function (a, b) { return a.distance - b.distance; });
     
     for ( let i = 0; i < spritesToRender.length; i++ )
     {
@@ -246,7 +244,9 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
         let x = spr.renderX - (img.width / 2);
         let y = (canvas.height - img.width * spr.scale) / 2;
         
+        ctx.globalAlpha = between(nearFog, farFog, spr.distance);
         canvas.drawImage(img, x, y, img.width * spr.scale, img.height * spr.scale);
+        ctx.globalAlpha = 1;
     }
     
     // document.getElementById('shadow').innerHTML = nextProx;
