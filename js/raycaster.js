@@ -4,10 +4,15 @@ var fogColor = [0.6, 0.6, 0.6]
 var wallColor = [0.95, 0.1, 0.02]
 var groundColor = [0.01, 0.01, 0.22]
 var ceilColor = [1.0, 0.9, 0.8]
-var nearFog = 48;
-var farFog = 64;
+var nearFog = 32;
+var farFog = 96;
 var darkDist = 72;
 var brightDist = 1.5;
+
+function lerp(a, b, x)
+{
+    return (x * (b - a)) + a;
+}
 
 function interpolateColor(a, b, x)
 {
@@ -34,9 +39,9 @@ function rayAngle(angle, x, fov, width)
     return angle + Math.atan((x / width * 2 - 1) * Math.tan(fov / 2));
 }
 
-function angleToX(angle, camAng, fov, width)
+function angleToX(relAng, fov, width)
 {
-    return width * (Math.tan(angle - camAng) / Math.tan(fov / 2) + 1) / 2;
+    return width * (Math.tan(relAng) / Math.tan(fov / 2) + 1) / 2;
 }
 
 var l = true;
@@ -70,6 +75,8 @@ function addTexture(name, href)
     }
 }
 
+bLogSpr = false;
+
 function colorHex(number)
 {
     number = Math.floor(number * 255);
@@ -89,6 +96,8 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
 {
     var id = ctx.createImageData(1, 1);
     var data = id.data;
+    var planeX = Math.cos(camAngle - Math.PI / 2) * Math.tan(fov / 2);
+    var planeY = Math.sin(camAngle - Math.PI / 2) * Math.tan(fov / 2);
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.lineWidth = 1;
@@ -171,8 +180,9 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
             
             if ( fog > 0 )
             {
+                let normWSize = Math.round(2 * canvas.height / curDist);
                 let wsize = Math.round(curLine.height * canvas.height / curDist);
-                let startY = Math.floor(canvas.height / 2 - wsize / 2) - camPos.z;
+                let startY = Math.floor(canvas.height / 2 - curLine.height * canvas.height / curDist - camPos.z + 1.5 * canvas.height / curDist);
                 
                 let proxBright = geom.point.len(geom.point.sub(camPos, curInter)).clamp(0, 2.75) / 2.75;
                 let bright = (Math.abs(geom.point.dot(geom.lineSeg.normalTo(curLine, camPos), { x: 1, y: 0 })) * 0.7 + 0.3) * proxBright * (1 - (curDist / darkDist)).clamp(0, 1);
@@ -185,14 +195,14 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
                 
                 let color = Array.from(wallColor);
                 
-                color[0] *= (bright * 2).clamp(0, 1);
-                color[1] *= (bright * 2).clamp(0, 1);
-                color[2] *= (bright * 2).clamp(0, 1);
+                color[0] *= (bright).clamp(0, 1);
+                color[1] *= (bright).clamp(0, 1);
+                color[2] *= (bright).clamp(0, 1);
                 
                 ctx.beginPath();
                 ctx.moveTo(x, startY);
                 ctx.lineTo(x, startY + wsize);
-                ctx.strokeStyle = "#" + colorHex(color[0]) + colorHex(color[1]) + colorHex(color[2]) + colorHex((fog * 1.5).clamp(0, 1));
+                ctx.strokeStyle = "#" + colorHex(color[0]) + colorHex(color[1]) + colorHex(color[2]) + colorHex(Math.pow(fog, 2));
                 ctx.lineWidth = 1;
                 ctx.stroke();
                 
@@ -200,7 +210,9 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
                 ctx.beginPath();
                 ctx.moveTo(x, startY);
                 ctx.lineTo(x, startY + wsize);
-                ctx.strokeStyle = "#" + colorHex(color[0]) + colorHex(color[1]) + colorHex(color[2]) + colorHex((fog * 1.5).clamp(0, 1));
+                ctx.globalAlpha = fog;
+                ctx.strokeStyle = "#" + colorHex(color[0]) + colorHex(color[1]) + colorHex(color[2]) + colorHex(Math.pow(fog, 2));
+                ctx.globalAlpha = 1;
                 ctx.lineWidth = 1;
                 ctx.stroke();
             }
@@ -208,25 +220,36 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
     }
     
     var spritesToRender = [];
-        
+    var theta = rayAngle(camAngle, 0, fov, canvas.width);
+    
     for ( let i = 0; i < sprites.length; i++ )
     {
         let sprite = sprites[i];
         let offs = geom.point.sub(sprite.pos, camPos);
         let depth = geom.point.len(offs);
         let ang = Math.atan2(offs.y, offs.x);
+        
+        // planeX = 0, planeY = tan(fov / 2)
+        let invDet = 1.0 / (planeX * Math.sin(camAngle) - Math.cos(camAngle) * planeY)
+        
+        let transformX = invDet * (Math.sin(camAngle) * offs.x - Math.cos(camAngle) * offs.y);
+        let transformY = invDet * (planeX * offs.y - planeY * offs.x);
+        
+        let absAng = Math.min(Math.abs(ang - camAngle), Math.abs(camAngle - ang));
         let distance = geom.point.len(offs);
         
-        let screenSprite = Object.from(sprite);
+        let screenSprite = Object.assign(sprite, {});
+        screenSprite.camDist = transformY;
         
-        if ( sprite.relPos.y > 0.1 )
+        if ( transformY > 0.1 )
         {
-            screenSprite.relPos = geom.point.mul(geom.point.fromAngle(ang - camAngle), geom.point.len(offs))
-            screenSprite.renderX = Math.round(screenSprite.relPos.y / screenSprite.relPos.x / Math.tan(fov / 2));
-            
-            if ( screenDists[renderX] > distance )
+            screenSprite.renderX = Math.round((canvas.width / 2) * (1 + transformX / transformY) - (spimes[sprite.type].width / 2 / transformY));
+          
+            if ( screenDists[screenSprite.renderX] > screenSprite.camDist )
             {
-                screenSprite.scale = sprite.size * canvas.height / distance;
+                // document.getElementById('shadow').innerHTML = screenSprite.renderX + " (" + offs.x + "," + offs.y + " [" + transformX + "])";
+            
+                screenSprite.scale = sprite.size * canvas.height / spimes[sprite.type].height / screenSprite.camDist;
                 screenSprite.distance = distance;
                 
                 spritesToRender.push(screenSprite);
@@ -234,22 +257,32 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
         }
     }
     
-    spritesToRender.sort(function (a, b) { return a.distance - b.distance; });
+    spritesToRender.sort(function (a, b) { return b.distance - a.distance; });
     
     for ( let i = 0; i < spritesToRender.length; i++ )
     {
         let spr = spritesToRender[i];
         let img = spimes[spr.type];
         
-        let x = spr.renderX - (img.width / 2);
-        let y = (canvas.height - img.width * spr.scale) / 2;
+        let x = spr.renderX;
+        let y = (canvas.height + canvas.height / spr.camDist * 3) / 2 - img.height * spr.scale;
         
-        ctx.globalAlpha = between(nearFog, farFog, spr.distance);
-        canvas.drawImage(img, x, y, img.width * spr.scale, img.height * spr.scale);
-        ctx.globalAlpha = 1;
+        let fog = 1 - between(nearFog, farFog, spr.camDist);
+        
+        if ( !bLogSpr && spritesToRender.length > 0 )
+        {
+            console.log(spr.type, x, y);
+            bLogSpr = true;
+        }
+        
+        if ( fog > 0 )
+        {
+            ctx.globalAlpha = fog;
+            
+            ctx.drawImage(img, x, y, img.width * spr.scale, img.height * spr.scale);
+            ctx.globalAlpha = 1;
+        }
     }
-    
-    // document.getElementById('shadow').innerHTML = nextProx;
 }
 
 module.exports = {

@@ -9,13 +9,13 @@
     
     <body>
         <script type="text/javascript" src="./bundle.js"></script>
-        <canvas width="1024" height="480" id="rayCanvas"></canvas>
+        <canvas width="968" height="480" id="rayCanvas"></canvas>
         
         <br/>
         
         <b>JSON Map Import:</b><br/>
-        <textarea rows="3" cols="105" id="jsonin"></textarea>
-        <button onclick="main(JSON.parse(document.getElementById('jsonin').value));">Import JSON</button>
-        shadow = <span id="shadow"></span>
+        <textarea rows="2" cols="105" id="jsonin"></textarea>
+        <button onclick="main(JSON.parse(document.getElementById('jsonin').value));">Import JSON</button><br/>
+        <b>Map List Address:</b> <input type="text" id="mlhost" /> <b>Map ID:</b> <input type="text" id="m_id" /> <button type="button" onclick="download()">Download MapID</button> Status:&nbsp;&nbsp;<span id="mlstatus" style="display: inline-block; font-family: monospace; background-color: #444; color: #e7e7f0; width: 25em; height: 17px; overflow-x: hidden; font-size: 17px; padding: 1px;"></span>
     </body>
 </html>

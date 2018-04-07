@@ -17,7 +17,7 @@ Number.prototype.clamp = function(min, max)
 
 function loadVert(v)
 {
-    return { x: v[0], y: v[1], z: (v[2] || null) };
+    return { x: -v[0], y: v[1], z: (v[2] || null) };
 }
 
 function loadWalls(l)
@@ -36,6 +36,8 @@ function imageLoaded()
     
     if ( counter < 1 )
     {
+        console.log(spriteImages);
+        
         main = function main(map)
         {
             if ( interval != null )
@@ -54,6 +56,7 @@ function imageLoaded()
             var camAngle = map.camera.angle * Math.PI / 180
             var swipe = map.camera.swipeWidth * Math.PI / 180;
             var camFov = map.camera.fov * Math.PI / 180;
+            var mapSprites = map.sprites;
 
             var curAng = camAngle;
             var angDelta = 0;
@@ -70,7 +73,7 @@ function imageLoaded()
             var ctx = cnv.getContext('2d');
             
             interval = setInterval(function() {
-                raycaster.raycast(cnv, walls, camPos, curAng, camFov, ctx, spriteImages);
+                raycaster.raycast(cnv, walls, camPos, curAng, camFov, ctx, mapSprites, spriteImages);
                 
                 if ( checkKey(39) )
                     angDelta -= 0.1;
@@ -171,6 +174,52 @@ function imageLoaded()
 
         defmap = JSON.parse(fs.readFileSync("./map.json", "utf-8"));
         main(defmap);
+    }
+}
+
+function mapList(host, callback)
+{
+    if ( "" in host.split(':') )
+        return;
+    
+    let conn = new WebSocket('ws://' + host, ['soap', 'xmpp']);
+    
+    conn.onopen = function() {
+        if ( !callback(conn) )
+            conn.onmessage = onMapListMessage;
+    }
+}
+
+download = function download()
+{
+    let host = document.getElementById('mlhost').value;
+    let id = document.getElementById('m_id').value;
+    
+    if ( host != '' && id != '' )
+    {
+        mapList(host, function(conn) {
+            conn.send("RETRIEVE:" + id);
+            
+            conn.onmessage = function(msg, isBin) {
+                if ( !isBin )
+                {
+                    msg = msg.data;
+                    
+                    let res = msg.split(':')[0];
+                    
+                    if ( res == "ERR" )
+                        document.getElementById('mlstatus').innerHTML = '<b style="color: red;">' + msg.slice(msg.indexOf(':') + 1) + '</b>';
+                        
+                    else
+                    {
+                        document.getElementById('mlstatus').innerHTML = "SUCCESS";
+                        main(JSON.parse(document.getElementById('jsonin').value = msg.slice(msg.indexOf(':') + 1)));
+                    }
+                }
+            }
+        
+            return true;
+        })
     }
 }
 

@@ -1,0 +1,34 @@
+ALSA lib pulse.c:243:(pulse_connect) PulseAudio: Unable to connect: Connection refused
+
+Can't open pcm device 'default'.
+Couldn't open ALSA pcm device (`s')
+ALSA lib pulse.c:243:(pulse_connect) PulseAudio: Unable to connect: Connection refused
+
+Can't open pcm device 'default'.
+Couldn't open ALSA pcm device (`s')
+ALSA lib pulse.c:243:(pulse_connect) PulseAudio: Unable to connect: Connection refused
+
+Can't open pcm device 'default'.
+Couldn't open ALSA pcm device (`s')
+ALSA lib pulse.c:243:(pulse_connect) PulseAudio: Unable to connect: Connection refused
+
+Can't open pcm device 'default'.
+Couldn't open ALSA pcm device (`s')
+ALSA lib pulse.c:243:(pulse_connect) PulseAudio: Unable to connect: Connection refused
+
+Can't open pcm device 'default'.
+Couldn't open ALSA pcm device (`s')
+ALSA lib pulse.c:243:(pulse_connect) PulseAudio: Unable to connect: Connection refused
+
+Can't open pcm device 'default'.
+Couldn't open ALSA pcm device (`s')
+ALSA lib pulse.c:243:(pulse_connect) PulseAudio: Unable to connect: Connection refused
+
+Can't open pcm device 'default'.
+Couldn't open ALSA pcm device (`s')
+ALSA lib pulse.c:243:(pulse_connect) PulseAudio: Unable to connect: Connection refused
+
+Can't open pcm device 'default'.
+Couldn't open ALSA pcm device (`s')
+Requested buffer size 32768, fragment size 8192
+ALSA pcm 'default' set buffer size 33868, period size 3760 bytes

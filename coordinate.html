@@ -3,7 +3,7 @@
 <html>
     <head>
         <meta charset="utf-8" />
-        <title>Rayus Coordinate Planner</title>
+        <title>The Rayus Editor</title>
     </head>
     
     <body width="1024">
@@ -14,13 +14,39 @@
             <button onclick="submitSprite(document.getElementById('sprSize').value, document.getElementById('sprType').value);">Add Sprite!</button>
         </div>
         
-        <div>
+        <div style="border:1px solid black; display: none;" id="helpSheet">
+            <h2>Operations Cheat Sheet:</h2>
+            <ul>
+                <li>Click at two points to form a Wall between them.</li>
+                <li>Click and drag to pan the Editor screen.</li>
+                <li>Press Z to delete the last formed Wall.</li>
+                <li>Click at one end of a Wall, then click at the other (holding the Del key) to delete it.</li>
+                <li>Shift+Click to set the Camera Position (think of it like a spawn or begin point).</li>
+                <li>Ctrl+Click to set the New Sprite position, then press Space to make it.</li>
+                <li>Ctrl+Shift+Click to delete a Sprite.</li>
+            </ul>
+            
+            <b>Current Sprite Types:</b>
+            <ul>
+                <li><pre>bucket</pre></li>
+                <li><pre>sphere</pre></li>
+            </ul>
+            
+            <button type="button" onclick="help('none')">Gotcha!</button>
+        </div>
+        
+        <div width="1024">
             <canvas width="533" height="300" id="planGrid" onclick="canvasClick(event)"></canvas><br/>
+            <button type="button" onclick="help('block')">How To Use</button> (operation cheatsheet)<br/>
             <span id="coords">x,y</span> <i>(press Shift and click to get coordinates at the cursor)</i><br/>
-            <b>Zoom:</b> <input type="range" min="0" max="10" style="width: 512px;" value="4" id="zoom" onchange="setZoom()" /> <b id="mzoom">128</b><br/>
-            <b>Snap:</b> <input type="range" min="0" max="8" style="width: 512px;" value="1" id="snap" onchange="setSnap()" /> <b id="msnap">16</b><br/>
-            <button type="button" onclick="_export()">Export JSON</button><br/>
-            <textarea rows="4" cols="105" id="_exported"></textarea><br/>
+            <b>Zoom:</b> <input type="range" min="0" max="10" style="width: 512px;" value="7" id="zoom" onchange="setZoom()" /> <b id="mzoom">128</b><br/>
+            <b>Snap:</b> <input type="range" min="0" max="8" style="width: 512px;" value="3" id="snap" onchange="setSnap()" /> <b id="msnap">8</b><br/>
+            <b>Next Walls' Height:</b> <input type="number" min="0.5" max="25" step="0.1" value="5" id="wsize" /><br/>
+            <b>Map List Address:</b> <input type="text" id="mlhost" /><br/>
+            <b>Map ID:</b> <input type="text" id="m_id" /><br/>
+            Map List Status:&nbsp;&nbsp;<div id="mlstatus" style="font-family: monospace; background-color: #444; color: #e7e7f0; min-width: 50em; max-width: 50em; height: 15px; overflow-x: hidden; font-size: 15px; padding: 1px;"></div>
+            <button type="button" onclick="_export()">Export JSON</button> <button type="button" onclick="_import()">Import JSON</button> <button type="button" onclick="download()">Download MapID from Map List</button> <button type="button" onclick="upload()">Upload to Map List</button><br/>
+            <textarea rows="3" cols="105" id="_exported"></textarea><br/>
             
             <script type="text/javascript" src="./coordinate.js"></script>  
         </div>
