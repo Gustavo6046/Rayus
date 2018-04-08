@@ -5,6 +5,16 @@
         <meta charset="utf-8" />
         <title>Rayus</title>
         
+        <style>
+        canvas {
+            image-rendering: optimizeSpeed;             /* Older versions of FF          */
+            image-rendering: -moz-crisp-edges;          /* FF 6.0+                       */
+            image-rendering: -webkit-optimize-contrast; /* Safari                        */
+            image-rendering: -o-crisp-edges;            /* OS X & Windows Opera (12.02+) */
+            /* image-rendering: pixelated;              (Awesome future-browsers)        */
+            -ms-interpolation-mode: nearest-neighbor;   /* IE                            */
+            }
+        </style>
     </head>
     
     <body>
@@ -17,5 +27,6 @@
         <textarea rows="2" cols="105" id="jsonin"></textarea>
         <button onclick="main(JSON.parse(document.getElementById('jsonin').value));">Import JSON</button><br/>
         <b>Map List Address:</b> <input type="text" id="mlhost" /> <b>Map ID:</b> <input type="text" id="m_id" /> <button type="button" onclick="download()">Download MapID</button> Status:&nbsp;&nbsp;<span id="mlstatus" style="display: inline-block; font-family: monospace; background-color: #444; color: #e7e7f0; width: 25em; height: 17px; overflow-x: hidden; font-size: 17px; padding: 1px;"></span>
+        <a href="coordinate.html">Editor</a>
     </body>
 </html>

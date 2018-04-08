@@ -1,3 +1,4 @@
+import traceback
 import bson
 import struct
 import json
@@ -12,14 +13,19 @@ db = {}
 fp = None
 
 if isfile("maplist.bson"):
-    fp = open("maplist.bson", 'w+b')
+    fp = open("maplist.bson", 'a+b')
+    fp.seek(0)
     
     try:
         db = bson.loads(fp.read())
         
     except struct.error:
+        traceback.print_exc()
         db = {}
-        fp.write(bson.dumps(db))
+        # fp.seek(0)
+        # print(len(fp.read()) / 1024)
+        # fp.seek(0)
+        # fp.write(bson.dumps(db))
        
     finally:
         fp.seek(0)

@@ -4,14 +4,27 @@
     <head>
         <meta charset="utf-8" />
         <title>The Rayus Editor</title>
+        <link href='https://fonts.googleapis.com/css?family=IBM Plex Mono' rel='stylesheet'>
     </head>
     
-    <body width="1024">
+    <body width="1024" style="font-family: sans;">
         <div style="border:1px solid black; display: none;" id="spriteForm">
             <h2>Sprite Addition Menu</h2>
             <b>Sprite Size:</b> <input type="number" min="0" max="8" step="0.01" id="sprSize" /><br/>
-            <b>Sprite Type:</b> <input type="text" cols="20" type="text" id="sprType" />
+            <b>Sprite Type:</b> <select id="sprType">
+                <option value="bucket" selected><pre>bucket</pre></option>
+                <option value="sphere"><pre>sphere</pre></option>
+            </select><br/>
             <button onclick="submitSprite(document.getElementById('sprSize').value, document.getElementById('sprType').value);">Add Sprite!</button>
+            <button onclick="document.getElementById('spriteForm').style.display = 'none';">Nevermind</button>
+        </div>
+        
+        <div style="border:1px solid black; display: none;" id="liteForm">
+            <h2>Light Creation Menu</h2>
+            <b>Light Radius:</b> <input type="number" min="2" max="96" step="1" value="5" id="liteRad" /><br/>
+            <b>Light Strength:</b> <input type="number" min="-3" max="3" step="0.1" value="1.5" id="liteSize" /><br/>
+            <button onclick="submitLight(document.getElementById('liteRad').value, document.getElementById('liteSize').value);">Create Light!</button>
+            <button onclick="document.getElementById('liteForm').style.display = 'none';">Nevermind</button>
         </div>
         
         <div style="border:1px solid black; display: none;" id="helpSheet">
@@ -21,15 +34,11 @@
                 <li>Click and drag to pan the Editor screen.</li>
                 <li>Press Z to delete the last formed Wall.</li>
                 <li>Click at one end of a Wall, then click at the other (holding the Del key) to delete it.</li>
-                <li>Shift+Click to set the Camera Position (think of it like a spawn or begin point).</li>
-                <li>Ctrl+Click to set the New Sprite position, then press Space to make it.</li>
-                <li>Ctrl+Shift+Click to delete a Sprite.</li>
-            </ul>
-            
-            <b>Current Sprite Types:</b>
-            <ul>
-                <li><pre>bucket</pre></li>
-                <li><pre>sphere</pre></li>
+                <li>Shift+Click and drag to set the Spawn Point and aim it.</li>
+                <li>Ctrl+Click to select a Map Spot.</li>
+                <li>Space to spawn a Sprite at the selected Map Spot.</li>
+                <li>Shift + Space to create a Light at the selected Map Spot.</li>
+                <li>Ctrl+Shift+Click to delete a Sprite or Light.</li>
             </ul>
             
             <button type="button" onclick="help('none')">Gotcha!</button>
@@ -38,17 +47,25 @@
         <div width="1024">
             <canvas width="533" height="300" id="planGrid" onclick="canvasClick(event)"></canvas><br/>
             <button type="button" onclick="help('block')">How To Use</button> (operation cheatsheet)<br/>
-            <span id="coords">x,y</span> <i>(press Shift and click to get coordinates at the cursor)</i><br/>
-            <b>Zoom:</b> <input type="range" min="0" max="10" style="width: 512px;" value="7" id="zoom" onchange="setZoom()" /> <b id="mzoom">128</b><br/>
-            <b>Snap:</b> <input type="range" min="0" max="8" style="width: 512px;" value="3" id="snap" onchange="setSnap()" /> <b id="msnap">8</b><br/>
+            <b>Zoom:</b> <input type="range" min="0" max="10" style="width: 512px;" value="7" id="zoom" onchange="setZoom()" /> <b id="mzoom">128</b> <b>| Snap:</b> <input type="range" min="0" max="8" style="width: 512px;" value="3" id="snap" onchange="setSnap()" /> <b id="msnap">8</b><br/>
             <b>Next Walls' Height:</b> <input type="number" min="0.5" max="25" step="0.1" value="5" id="wsize" /><br/>
-            <b>Map List Address:</b> <input type="text" id="mlhost" /><br/>
-            <b>Map ID:</b> <input type="text" id="m_id" /><br/>
-            Map List Status:&nbsp;&nbsp;<div id="mlstatus" style="font-family: monospace; background-color: #444; color: #e7e7f0; min-width: 50em; max-width: 50em; height: 15px; overflow-x: hidden; font-size: 15px; padding: 1px;"></div>
+            <b>Map List Address:</b> <input type="text" id="mlhost" /> <b>Map ID:</b> <input type="text" id="m_id" /><br/>
+            Map List Status:&nbsp;&nbsp;<div style="background-color: #444; color: #e7e7f0; min-width: 80em; max-width: 80em; height: 1.5em; overflow-x: hidden; font-size: 12px; padding: 1px;"><span id="mlstatus" style="font-family: 'IBM Plex Mono', sans;"></span></div>
             <button type="button" onclick="_export()">Export JSON</button> <button type="button" onclick="_import()">Import JSON</button> <button type="button" onclick="download()">Download MapID from Map List</button> <button type="button" onclick="upload()">Upload to Map List</button><br/>
-            <textarea rows="3" cols="105" id="_exported"></textarea><br/>
+            <textarea rows="2" cols="105" id="_exported"></textarea><br/>
+            <b>Display Type:</b> <select id="dispType" oninput="setDispType(this.value == 'texture')">
+                <option value="color" label="Col." selected>Colored</option>
+                <option value="texture" label="Tex.">Textured</option>
+            </select>
+            <span id="sel_color" style="border: 1px solid black; display: inline-block;">Wall Color: R=<input type="number" id="cred" min="0" max="100" value="90" /> G=<input type="number" id="cgreen" min="0" max="100" value="30" /> B=<input type="number" id="cblue" min="0" max="100" value="0" /> <b>(%)</b></span>
+            <span id="sel_tex" style="border: 1px solid black; display: none;">Wall Texture: <select id="tex">
+                <option value="test" style="font-family: monospace;">test</option>
+                <option value="brick" style="font-family: monospace;" selected>brick</option>
+                <option value="cement1" style="font-family: monospace;">cement1</option>
+            </select></span><br/>
             
             <script type="text/javascript" src="./coordinate.js"></script>  
+            <a href="index.html">Editor</a>
         </div>
     </body>
 </html>

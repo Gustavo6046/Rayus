@@ -2,12 +2,20 @@ var fs = require('fs');
 var geom = require('./geometry.js');
 var raycaster = require('./raycaster.js');
 
-var spriteImages = {
-    sphere: fs.readFileSync('sphere.b64'),
-    bucket: fs.readFileSync('bucket.b64')
+var images = {
+    sprites: {
+        sphere: fs.readFileSync('sphere.b64'),
+        bucket: fs.readFileSync('bucket.b64')
+    },
+    
+    tex: {
+        brick: fs.readFileSync('brick.b64'),
+        test: fs.readFileSync('test.b64'),
+        cement1: fs.readFileSync('cement1.b64')
+    }
 };
 
-counter = Object.keys(spriteImages).length;
+counter = Object.keys(images.tex).length + Object.keys(images.sprites).length;
 interval = null;
 
 Number.prototype.clamp = function(min, max)
@@ -17,7 +25,7 @@ Number.prototype.clamp = function(min, max)
 
 function loadVert(v)
 {
-    return { x: -v[0], y: v[1], z: (v[2] || null) };
+    return { x: v[0], y: v[1], z: (v[2] || null) };
 }
 
 function loadWalls(l)
@@ -25,7 +33,16 @@ function loadWalls(l)
     let res = [];
     
     for ( let i = 0; i < l.length; i++ )
-        res.push({ begin: loadVert(l[i][0]), offset: geom.point.sub(loadVert(l[i][1]), loadVert(l[i][0])), height: l[i][2] });
+    {
+        if ( l[i].length == 3 )
+            res.push({ begin: loadVert(l[i][0]), offset: geom.point.sub(loadVert(l[i][1]), loadVert(l[i][0])), height: l[i][2], colType: 'flat' });
+        
+        else if ( Array.isArray(l[i][3]) )
+            res.push({ begin: loadVert(l[i][0]), offset: geom.point.sub(loadVert(l[i][1]), loadVert(l[i][0])), height: l[i][2], colType: 'flat', color: l[i][3] });
+        
+        else
+            res.push({ begin: loadVert(l[i][0]), offset: geom.point.sub(loadVert(l[i][1]), loadVert(l[i][0])), height: l[i][2], colType: 'textured', texture: l[i][3] });
+    }
     
     return res;
 }
@@ -36,10 +53,11 @@ function imageLoaded()
     
     if ( counter < 1 )
     {
-        console.log(spriteImages);
-        
         main = function main(map)
         {
+            window.d = false;
+            window.l = false;
+            
             if ( interval != null )
                 clearInterval(interval);
             
@@ -49,7 +67,7 @@ function imageLoaded()
             for ( let i = 0; i < sprites.length; i++ )
             {
                 sprites[i].pos = loadVert(sprites[i].pos);
-                sprites[i].image = spriteImages[sprites[i].type];
+                sprites[i].image = images[sprites[i].type];
             }
 
             var camPos = loadVert(map.camera.pos);
@@ -57,6 +75,10 @@ function imageLoaded()
             var swipe = map.camera.swipeWidth * Math.PI / 180;
             var camFov = map.camera.fov * Math.PI / 180;
             var mapSprites = map.sprites;
+            var lights = map.lights || [];
+            
+            for ( let i = 0; i < lights.length; i++ )
+                lights[i].pos = loadVert(lights[i].pos);
 
             var curAng = camAngle;
             var angDelta = 0;
@@ -73,31 +95,31 @@ function imageLoaded()
             var ctx = cnv.getContext('2d');
             
             interval = setInterval(function() {
-                raycaster.raycast(cnv, walls, camPos, curAng, camFov, ctx, mapSprites, spriteImages);
+                raycaster.raycast(cnv, walls, camPos, curAng, camFov, ctx, mapSprites, images.sprites, images.tex, lights);
                 
                 if ( checkKey(39) )
-                    angDelta -= 0.1;
+                    angDelta += 0.12;
                 
                 if ( checkKey(37) )
-                    angDelta += 0.1;
+                    angDelta -= 0.12;
                 
                 if ( checkKey(38) )
-                    fVel += 0.7;
+                    fVel += 0.9;
                 
                 if ( checkKey(40) )
-                    fVel -= 0.7;
+                    fVel -= 0.9;
                 
                 curAng += angDelta;
                 
                 if ( checkKey(16) )
                 {
-                    fVel = (fVel * 1.9).clamp(-1.8, 1.8);
-                    angDelta = (angDelta * 1.5).clamp(-0.09, 0.09);
+                    fVel = (fVel * 2).clamp(-2.2, 2.2);
+                    angDelta = (angDelta * 1.5).clamp(-0.1, 0.1);
                 }
                 
                 else
                 {
-                    fVel = fVel.clamp(-1, 1);
+                    fVel = fVel.clamp(-1.2, 1.2);
                     angDelta = angDelta.clamp(-0.05, 0.05);
                 }
                 
@@ -149,7 +171,7 @@ function imageLoaded()
                     breath += breathDelta;
                     breathDelta *= 0.975;
                 }
-            }, 50);
+            }, 65);
 
             function checkKey(c)
             {
@@ -171,9 +193,66 @@ function imageLoaded()
             document.onkeydown = keyDown;
             document.onkeyup = keyUp;
         }
+        
+        download = function download()
+        {
+            let host = document.getElementById('mlhost').value;
+            let id = document.getElementById('m_id').value;
+            
+            if ( host != '' && id != '' )
+            {
+                mapList(host, function(conn) {
+                    conn.send("RETRIEVE:" + id);
+                    
+                    conn.onmessage = function(msg, isBin) {
+                        if ( !isBin )
+                        {
+                            msg = msg.data;
+                            
+                            let res = msg.split(':')[0];
+                            
+                            if ( res == "ERR" )
+                                document.getElementById('mlstatus').innerHTML = '<b style="color: red;">' + msg.slice(msg.indexOf(':') + 1) + '</b>';
+                                
+                            else
+                            {
+                                document.getElementById('mlstatus').innerHTML = "SUCCESS";
+                                main(JSON.parse(document.getElementById('jsonin').value = msg.slice(msg.indexOf(':') + 1)));
+                            }
+                        }
+                    }
+                
+                    return true;
+                })
+            }
+        }
 
         defmap = JSON.parse(fs.readFileSync("./map.json", "utf-8"));
-        main(defmap);
+        
+        let url = new URL(location.href);
+        let id = url.searchParams.get("mapid");
+        let mlhost = url.searchParams.get("maplist");
+        let map = url.searchParams.get("mjson");
+        
+        if ( id != null && mlhost != null )
+        {
+            console.log("Loading map of ID '" + id + "' from map list server: " + mlhost);
+            
+            document.getElementById('mlhost').value = mlhost;
+            document.getElementById('m_id').value = id;
+            
+            download();
+        }
+        
+        else if ( map != null )
+        {
+            document.getElementById('jsonin').value = map;
+            
+            main(JSON.parse(map));
+        }
+        
+        else
+            main(defmap);
     }
 }
 
@@ -190,45 +269,41 @@ function mapList(host, callback)
     }
 }
 
-download = function download()
+for ( let i = 0; i < Object.keys(images.tex).length; i++ )
 {
-    let host = document.getElementById('mlhost').value;
-    let id = document.getElementById('m_id').value;
+    let k = Object.keys(images.tex)[i];
+    let src = images.tex[k];
     
-    if ( host != '' && id != '' )
-    {
-        mapList(host, function(conn) {
-            conn.send("RETRIEVE:" + id);
-            
-            conn.onmessage = function(msg, isBin) {
-                if ( !isBin )
-                {
-                    msg = msg.data;
-                    
-                    let res = msg.split(':')[0];
-                    
-                    if ( res == "ERR" )
-                        document.getElementById('mlstatus').innerHTML = '<b style="color: red;">' + msg.slice(msg.indexOf(':') + 1) + '</b>';
-                        
-                    else
-                    {
-                        document.getElementById('mlstatus').innerHTML = "SUCCESS";
-                        main(JSON.parse(document.getElementById('jsonin').value = msg.slice(msg.indexOf(':') + 1)));
-                    }
-                }
-            }
+    images.tex[k] = new Image();
+    images.tex[k].onload = function() {
+        /*
+        let tex = images.tex[k];
+        let tc = document.createElement('canvas');
+        let tctx = tc.getContext('2d');
         
-            return true;
-        })
-    }
+        tc.width = tex.width;
+        tc.height = tex.height;
+        
+        tctx.drawImage(tex, 0, 0, tex.width, tex.height);
+        
+        images.tex[k] = {
+            image: images.tex[k],
+            canvas: tc,
+            ctx: tctx
+        };
+        */
+        
+        imageLoaded();
+    };
+    images.tex[k].src = src;
 }
 
-for ( let i = 0; i < Object.keys(spriteImages).length; i++ )
+for ( let i = 0; i < Object.keys(images.sprites).length; i++ )
 {
-    let k = Object.keys(spriteImages)[i];
-    let src = spriteImages[k];
+    let k = Object.keys(images.sprites)[i];
+    let src = images.sprites[k];
     
-    spriteImages[k] = new Image();
-    spriteImages[k].onload = imageLoaded;
-    spriteImages[k].src = src;
+    images.sprites[k] = new Image();
+    images.sprites[k].onload = imageLoaded;
+    images.sprites[k].src = src;
 }

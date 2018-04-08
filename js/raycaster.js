@@ -1,12 +1,12 @@
 var geom = require('./geometry.js');
 
-var fogColor = [0.6, 0.6, 0.6]
-var wallColor = [0.95, 0.1, 0.02]
-var groundColor = [0.01, 0.01, 0.22]
-var ceilColor = [1.0, 0.9, 0.8]
-var nearFog = 32;
-var farFog = 96;
-var darkDist = 72;
+var fogColor = [0.6, 0.6, 0.6];
+var wallColor = [0.9, 0.125, 0];
+var groundColor = [0.01, 0.01, 0.22];
+var ceilColor = [0.7, 0.85, 0.9];
+var nearFog = 48;
+var farFog = 104;
+var darkDist = 96;
 var brightDist = 1.5;
 
 function lerp(a, b, x)
@@ -56,6 +56,14 @@ function rowDist(y, height)
     return 15 * height / (height - y);
 }
 
+function flatPos(y, height, angle, pos)
+{
+    return {
+        x: pos.x + Math.cos(angle) * rowDist(y, height),
+        y: pos.y + Math.sin(angle) * rowDist(y, height)
+    };
+}
+
 var textures = {};
 
 function addTexture(name, href)
@@ -92,12 +100,12 @@ function colorHex(number)
     return res;
 }
 
-function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // :D
+function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes, textures, lights) // :D
 {
     var id = ctx.createImageData(1, 1);
     var data = id.data;
-    var planeX = Math.cos(camAngle - Math.PI / 2) * Math.tan(fov / 2);
-    var planeY = Math.sin(camAngle - Math.PI / 2) * Math.tan(fov / 2);
+    var planeX = Math.cos(camAngle + Math.PI / 2) * Math.tan(fov / 2);
+    var planeY = Math.sin(camAngle + Math.PI / 2) * Math.tan(fov / 2);
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.lineWidth = 1;
@@ -119,17 +127,39 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
         ctx.strokeStyle = "#" + colorHex(color[0]) + colorHex(color[1]) + colorHex(color[2])
         ctx.lineWidth = 1;
         ctx.stroke();
+        
+        /*
+        for ( let bx = 0; bx < canvas.width; bx++ )
+        {
+            let fpos = flatPos(y, canvas.height / 2, rayAngle(camAngle, bx, fov * (canvas.width / canvas.height), canvas.width), camPos);
+            let bright = 1;
+            
+            for ( l in lights )
+                bright += l.strength / geom.point.sqlen(geom.point.sub(fpos, l.pos));
+            
+            bright = bright.clamp(0, 3);
+            
+            if ( bright > 1 )
+            {
+                ctx.fillStyle = "rgba(1, 1, 1, " + ((bright - 1) / 2).toString() + ")";
+                ctx.fillRect(x, startY, 1, wsize);
+            }
+        }
+        */
     }
     
     for (; y < canvas.height; y++ )
     {
         var prog = (canvas.height - y);
         var color = interpolateColor(groundColor, fogColor, between(nearFog, farFog, rowDist(prog, canvas.height / 2)));
-        var bright = (darkDist / rowDist(y, canvas.height / 2)).clamp(0, 1);
+        var bright = (darkDist / rowDist(y, prog)).clamp(0, 1);
         
-        color[0] *= bright;
-        color[1] *= bright;
-        color[2] *= bright;
+        if ( bright <= 1 )
+        {           
+            color[0] *= bright;
+            color[1] *= bright;
+            color[2] *= bright;
+        }
         
         ctx.beginPath();
         ctx.moveTo(0, y);
@@ -137,6 +167,25 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
         ctx.strokeStyle = "#" + colorHex(color[0]) + colorHex(color[1]) + colorHex(color[2])
         ctx.lineWidth = 1;
         ctx.stroke();
+        
+        /*
+        for ( let bx = 0; bx < canvas.width; bx++ )
+        {
+            let fpos = flatPos(prog, canvas.height / 2, rayAngle(camAngle, bx, fov * (canvas.width / canvas.height), canvas.width), camPos);
+            let bright = 1;
+            
+            for ( l in lights )
+                bright += l.strength / geom.point.sqlen(geom.point.sub(fpos, l.pos));
+            
+            bright = bright.clamp(0, 3);
+            
+            if ( bright > 1 )
+            {
+                ctx.fillStyle = "rgba(1, 1, 1, " + ((bright - 1) / 2).toString() + ")";
+                ctx.fillRect(x, startY, 1, wsize);
+            }
+        }
+        */
     }
     
     var nextProx = null;
@@ -175,7 +224,7 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
         
         if ( curLine !== null )
         {
-            let fog = 1 - between(nearFog, farFog, curDist);
+            let fog = 1 - between(nearFog, farFog, realDist);
             screenDists.push(curDist);
             
             if ( fog > 0 )
@@ -187,34 +236,64 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
                 let proxBright = geom.point.len(geom.point.sub(camPos, curInter)).clamp(0, 2.75) / 2.75;
                 let bright = (Math.abs(geom.point.dot(geom.lineSeg.normalTo(curLine, camPos), { x: 1, y: 0 })) * 0.7 + 0.3) * proxBright * (1 - (curDist / darkDist)).clamp(0, 1);
                 
+                for ( let i = 0; i < lights.length; i++ )
+                {
+                    //if ( geom.point.len(geom.point.sub(curInter, lights[i].pos)) <= lights[i].radius )
+                    //{
+                    let rs = lights[i].radius / geom.point.len(geom.point.sub(curInter, lights[i].pos)) * lights[i].strength;
+                    
+                    if ( rs <= 0 )
+                        continue;
+                    
+                    bright += rs;
+                    //}
+                }
+                    
+                bright = bright.clamp(0, 6);
+                
                 if ( nextProx == null )
                     nextProx = proxBright;
                 
                 if ( proxBright < nextProx )
                     nextProx = proxBright;
                 
-                let color = Array.from(wallColor);
+                let color = null;
                 
-                color[0] *= (bright).clamp(0, 1);
-                color[1] *= (bright).clamp(0, 1);
-                color[2] *= (bright).clamp(0, 1);
+                if ( curLine.colType == "flat" || !curLine.colType )
+                {
+                    if ( curLine.color )
+                        color = Array.from(curLine.color);
+                    
+                    else
+                        color = Array.from(wallColor);
+                    
+                    ctx.globalAlpha = fog * fog;
+                    ctx.fillStyle = "#" + colorHex(color[0]) + colorHex(color[1]) + colorHex(color[2]);
+                    ctx.fillRect(x, startY, 1, wsize);
+                    ctx.globalAlpha = 1;
+                }
+
+                else if ( curLine.colType == "textured" && Object.keys(textures).indexOf(curLine.texture) > -1 )
+                {
+                    let tex = textures[curLine.texture];
+                    let wx = Math.round(geom.point.len(geom.point.sub(curInter, curLine.begin)) * curLine.height);
+                    let tx = wx % tex.width;
+                    
+                    ctx.globalAlpha = fog * fog;
+                    ctx.drawImage(tex, tx, 0, 1, tex.height, x, startY, 1, wsize);
+                    ctx.globalAlpha = 1;
+                }
                 
-                ctx.beginPath();
-                ctx.moveTo(x, startY);
-                ctx.lineTo(x, startY + wsize);
-                ctx.strokeStyle = "#" + colorHex(color[0]) + colorHex(color[1]) + colorHex(color[2]) + colorHex(Math.pow(fog, 2));
-                ctx.lineWidth = 1;
-                ctx.stroke();
+                if ( bright > 1 )
+                {
+                    if ( !window.d ) { console.log(bright, ((bright - 1) / 5)); window.d = true; }
+                    ctx.fillStyle = "#FFFFFF" + colorHex(((bright - 1) / 5) * fog * fog);
+                }
                 
-                // for opacity
-                ctx.beginPath();
-                ctx.moveTo(x, startY);
-                ctx.lineTo(x, startY + wsize);
-                ctx.globalAlpha = fog;
-                ctx.strokeStyle = "#" + colorHex(color[0]) + colorHex(color[1]) + colorHex(color[2]) + colorHex(Math.pow(fog, 2));
-                ctx.globalAlpha = 1;
-                ctx.lineWidth = 1;
-                ctx.stroke();
+                else
+                    ctx.fillStyle = "#000000" + colorHex((1 - bright) * fog * fog);
+                
+                ctx.fillRect(x, startY, 1, wsize);
             }
         }
     }
@@ -229,7 +308,6 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
         let depth = geom.point.len(offs);
         let ang = Math.atan2(offs.y, offs.x);
         
-        // planeX = 0, planeY = tan(fov / 2)
         let invDet = 1.0 / (planeX * Math.sin(camAngle) - Math.cos(camAngle) * planeY)
         
         let transformX = invDet * (Math.sin(camAngle) * offs.x - Math.cos(camAngle) * offs.y);
@@ -243,17 +321,17 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
         
         if ( transformY > 0.1 )
         {
-            screenSprite.renderX = Math.round((canvas.width / 2) * (1 + transformX / transformY) - (spimes[sprite.type].width / 2 / transformY));
+            screenSprite.renderX = Math.round((canvas.width / 2) * (1 + transformX / screenSprite.camDist) - (spimes[sprite.type].width / 2 / transformY));
           
-            if ( screenDists[screenSprite.renderX] > screenSprite.camDist )
-            {
-                // document.getElementById('shadow').innerHTML = screenSprite.renderX + " (" + offs.x + "," + offs.y + " [" + transformX + "])";
+            //if ( screenDists[screenSprite.renderX] > screenSprite.camDist )
+            //{
+            // document.getElementById('shadow').innerHTML = screenSprite.renderX + " (" + offs.x + "," + offs.y + " [" + transformX + "])";
+        
+            screenSprite.scale = sprite.size * canvas.height / spimes[sprite.type].height / screenSprite.camDist;
+            screenSprite.distance = distance;
             
-                screenSprite.scale = sprite.size * canvas.height / spimes[sprite.type].height / screenSprite.camDist;
-                screenSprite.distance = distance;
-                
-                spritesToRender.push(screenSprite);
-            }
+            spritesToRender.push(screenSprite);
+            //}
         }
     }
     
@@ -267,19 +345,24 @@ function raycast(canvas, walls, camPos, camAngle, fov, ctx, sprites, spimes) // 
         let x = spr.renderX;
         let y = (canvas.height + canvas.height / spr.camDist * 3) / 2 - img.height * spr.scale;
         
-        let fog = 1 - between(nearFog, farFog, spr.camDist);
+        let fog = 1 - between(nearFog, farFog, spr.distance);
         
+        /*
         if ( !bLogSpr && spritesToRender.length > 0 )
         {
             console.log(spr.type, x, y);
             bLogSpr = true;
         }
+        */
         
         if ( fog > 0 )
         {
             ctx.globalAlpha = fog;
             
-            ctx.drawImage(img, x, y, img.width * spr.scale, img.height * spr.scale);
+            for ( let wx = 0; wx < img.width * spr.scale; wx++ )
+                if ( screenDists[x + wx] > spr.camDist )
+                    ctx.drawImage(img, wx / spr.scale, 0, 1, img.height, x + wx, y, spr.scale, img.height * spr.scale);
+            
             ctx.globalAlpha = 1;
         }
     }
