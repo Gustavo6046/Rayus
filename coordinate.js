@@ -53,6 +53,10 @@ var camAim = null;
 var liteForm = document.getElementById('liteForm');
 var beginPos = null;
 var lights = [];
+var labelForm = document.getElementById('labelForm');
+var mmusic = null;
+var mapTriggerForm = document.getElementById('mapTriggerForm');
+var map_mplayer = new Audio();
 
 var _shift = false;
 var _ctrl = false;
@@ -63,6 +67,21 @@ var lastMove = null;
 Number.prototype.clamp = function(min, max)
 {
     return Math.min(Math.max(this, min), max);
+}
+
+function playMusic()
+{
+    if ( map_mplayer.paused && mmusic != null )
+    {
+        map_mplayer.src = mmusic;
+        map_mplayer.currentTime = 0;
+        map_mplayer.play();
+    }
+    
+    else
+    {
+        map_mplayer.pause();
+    }
 }
 
 function lineComp(l)
@@ -92,7 +111,7 @@ canvas.onmousedown = function() {
             else
             {
                 camPos = beginPos.map(function(x) { return Math.round(x / snap) * snap; });
-                camAim = Math.atan2(cy + pan[1] * zoom / 64 - camPos[1], cx + pan[0] * zoom / 64 - camPos[0]);
+                camAim = Math.atan2(cy + pan[1] - camPos[1], cx + pan[0] - camPos[0]);
             }
             
             moved = true;
@@ -288,6 +307,35 @@ function renderGrids()
         }
 }
 
+function renderTrigger(t)
+{
+    var pattern = document.createElement('canvas');
+    pattern.width = 40;
+    pattern.height = 40;
+    var pctx = pattern.getContext('2d');
+
+    pctx.fillStyle = "rgb(255, 0, 255)";
+    pctx.fillRect(0,0, 0.0 ,0.01 * zoom, 0.01 * zoom);
+    pctx.fillRect(0.01 * zoom, 0.01 * zoom, 0.01 * zoom, 0.01 * zoom);
+    
+    var pattern = ctx.createPattern(pattern, "repeat");
+    
+    ctx.beginPath();
+    ctx.arc((t.pos[0] - pan[0]) * zoom / 64, (t.pos[1] - pan[1]) * zoom / 64, t.radius * zoom / 64, 0, 2 * Math.PI, false);
+    ctx.fillStyle = pattern;
+    ctx.fill();
+    
+    ctx.fillStyle = "white";
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 1 / 64 * zoom;
+    
+    ctx.font = (0.005 * zoom) + "px Arial"; // ~12px on 128 zoom
+    ctx.textAlign = "center";
+    
+    ctx.fillText(t.nextMap, (t.pos[0] - pan[0]) * zoom / 64, (t.pos[1] - pan[1]) * zoom / 64);
+    ctx.strokeText(t.nextMap, (t.pos[0] - pan[0]) * zoom / 64, (t.pos[1] - pan[1]) * zoom / 64);
+}
+
 function render()
 {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -353,7 +401,25 @@ function render()
     for ( let i = 0; i < sprites.length; i++ )
     {
         ctx.beginPath();
-        ctx.arc((sprites[i].pos[0] - pan[0]) * zoom / 64, (sprites[i].pos[1] - pan[1]) * zoom / 64, sprites[i].size / 32 * zoom, 0, 2 * Math.PI, false);
+        
+        if ( sprites[i].kind == 'sprite' )
+            ctx.arc((sprites[i].pos[0] - pan[0]) * zoom / 64, (sprites[i].pos[1] - pan[1]) * zoom / 64, sprites[i].size / 32 * zoom, 0, 2 * Math.PI, false);
+        
+        else if ( sprites[i].nextMap )
+            renderTrigger(sprites[i]);
+        
+        else
+        {
+            ctx.fillStyle = "#FFFFFF";
+            ctx.strokeStyle = "#000000";
+            ctx.lineWidth = 1 / 64 * zoom;
+            ctx.font = (zoom / 10) + "px Arial";
+            ctx.textAlign = "center";
+            
+            ctx.fillText(sprites[i].text, (sprites[i].pos[0] - pan[0]) * zoom / 64, (sprites[i].pos[1] - pan[1]) * zoom / 64);
+            ctx.strokeText(sprites[i].text, (sprites[i].pos[0] - pan[0]) * zoom / 64, (sprites[i].pos[1] - pan[1]) * zoom / 64);
+        }
+        
         ctx.fillStyle = "#FF8000";
         ctx.fill();
     }
@@ -405,9 +471,15 @@ document.onkeypress = function canvasPress(e)
     
     else if ( e.charCode == 32 && sprPos != null )
     {
-        if ( _shift )
+        if ( _shift && _ctrl )
+            mapTriggerForm.style.display = "block";
+        
+        else if ( _shift )
             liteForm.style.display = "block";
             
+        else if ( _ctrl )
+            labelForm.style.display = "block";
+        
         else
             sprForm.style.display = "block";
         
@@ -500,9 +572,8 @@ function download()
                     
                 else
                 {
-                    output.value = msg.slice(msg.indexOf(':') + 1);
                     mlstatus("SUCCESS");
-                    _import();
+                    _import(JSON.parse(msg.slice(msg.indexOf(':') + 1)));
                 }
                 
                 conn.close()
@@ -515,7 +586,7 @@ function download()
 
 function upload()
 {
-    let data = _export();
+    let data = _export(true);
     
     mapList(function(conn) {
         conn.send("SAVE:" + data);
@@ -553,9 +624,10 @@ function upload()
     });
 }
 
-function _import()
+function _import(data)
 {
-    let data = JSON.parse(output.value);
+    if ( !data )
+        data = JSON.parse(output.value);
     
     lines = data.walls;
     sprites = data.sprites;
@@ -567,10 +639,27 @@ function _import()
     _shift = false;
     _ctrl = false;
     
+    mmusic = data.music;
+    
     render();
 }
 
-function _export()
+function upMusic(f)
+{
+    if ( document.getElementById("music").value != "" )
+    {
+        let reader = new FileReader();
+        reader.readAsDataURL(f);
+        
+        reader.onload = function() {
+            mmusic = reader.result;
+        }
+    }
+    
+    document.getElementById("music").value = "";
+}
+
+function _export(jsonOnly)
 {
     if ( camPos == null )
     {
@@ -578,10 +667,12 @@ function _export()
         return;
     }
     
-    output.value = JSON.stringify({
+    let res = JSON.stringify({
         walls: lines,
         sprites: sprites,
         lights: lights,
+        music: mmusic,
+        loopPoint: document.getElementById('lpoint'),
         camera: {
             pos: camPos,
             angle: camAim * 180 / Math.PI,
@@ -589,7 +680,10 @@ function _export()
         }
     });
     
-    return output.value
+    if ( !jsonOnly )
+        output.value = res;
+    
+    return res;
 }
 
 function submitSprite(size, type)
@@ -597,8 +691,19 @@ function submitSprite(size, type)
     if ( type in ['', null, undefined] )
         return;
     
-    sprites.push({ type: type, size: +size, pos: sprPos });
+    sprites.push({ type: type, size: +size, pos: sprPos, kind: "sprite" });
     sprForm.style.display = "none";
+    sprPos = null;
+    render();
+}
+
+function submitLabel(size, text)
+{
+    if ( text in ['', null, undefined] )
+        return;
+    
+    sprites.push({ size: +size, pos: sprPos, kind: "text", text: text });
+    labelForm.style.display = "none";
     sprPos = null;
     render();
 }
@@ -610,6 +715,18 @@ function submitLight(radius, strength)
     
     lights.push({ radius: radius, strength: strength, pos: sprPos });
     liteForm.style.display = "none";
+    sprPos = null;
+    
+    render();
+}
+
+function submitMapTrigger(id, radius)
+{
+    if ( radius == 0 )
+        return;
+    
+    sprites.push({ size: 1, pos: sprPos, kind: "text", text: "", nextMap: id, radius: radius });
+    mapTriggerForm.style.display = "none";
     sprPos = null;
     
     render();
@@ -632,4 +749,23 @@ function setDispType(bTextured)
     textured = bTextured;
 }
 
+
 render();
+setDispType(document.getElementById('dispType').value == 'texture');
+
+let url = new URL(location.href);
+let _id = url.searchParams.get("mapid");
+let _mlhost = url.searchParams.get("maplist");
+
+if ( _mlhost != null )
+{
+    document.getElementById('mlhost').value = _mlhost;
+    
+    if ( _id != null )
+    {
+        console.log("Loading map of ID '" + _id + "' from map list server: " + _mlhost);
+        
+        document.getElementById('m_id').value = _id;
+        download();
+    }
+}

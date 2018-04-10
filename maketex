@@ -1,0 +1,11 @@
+. ./texConfig.sh
+
+for s in ${sprites[@]}; do
+    echo Building sprite: $s
+    ./sprite $s
+done
+
+for t in ${textures[@]}; do
+    echo Building texture: $t
+    ./texture $t
+done

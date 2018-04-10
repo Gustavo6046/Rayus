@@ -19,12 +19,28 @@
             <button onclick="document.getElementById('spriteForm').style.display = 'none';">Nevermind</button>
         </div>
         
+        <div style="border:1px solid black; display: none;" id="labelForm">
+            <h2>Label Addition Menu</h2>
+            <b>Label Size:</b> <input type="number" min="0.5" max="8" step="0.01" id="lsize" /><br/>
+            <b>Label Text:</b> <input type="text" id="ltext"><br/>
+            <button onclick="submitLabel(document.getElementById('lsize').value, document.getElementById('ltext').value);">Add Sprite!</button>
+            <button onclick="document.getElementById('labelForm').style.display = 'none';">Nevermind</button>
+        </div>
+        
         <div style="border:1px solid black; display: none;" id="liteForm">
             <h2>Light Creation Menu</h2>
             <b>Light Radius:</b> <input type="number" min="2" max="96" step="1" value="5" id="liteRad" /><br/>
             <b>Light Strength:</b> <input type="number" min="-3" max="3" step="0.1" value="1.5" id="liteSize" /><br/>
             <button onclick="submitLight(document.getElementById('liteRad').value, document.getElementById('liteSize').value);">Create Light!</button>
             <button onclick="document.getElementById('liteForm').style.display = 'none';">Nevermind</button>
+        </div>
+        
+        <div style="border:1px solid black; display: none;" id="mapTriggerForm">
+            <h2>Map Trigger Creation Menu</h2>
+            <b>Trigger Radius:</b> <input type="number" min="2" max="96" step="1" value="5" id="trigRad" /><br/>
+            <b>MapID:</b> <input type="text" id="cmapID"><br/>
+            <button onclick="submitMapTrigger(document.getElementById('cmapID').value, document.getElementById('trigRad').value);">Create Map Trigger!</button>
+            <button onclick="document.getElementById('mapTriggerForm').style.display = 'none';">Nevermind</button>
         </div>
         
         <div style="border:1px solid black; display: none;" id="helpSheet">
@@ -38,6 +54,8 @@
                 <li>Ctrl+Click to select a Map Spot.</li>
                 <li>Space to spawn a Sprite at the selected Map Spot.</li>
                 <li>Shift + Space to create a Light at the selected Map Spot.</li>
+                <li>Ctrl + Space to spawn a Label (text Sprite) at the selected Map Spot.</li>
+                <li>Ctrl + Shift + Space to create a Map Change Trigger at the selected Map Spot.</li>
                 <li>Ctrl+Shift+Click to delete a Sprite or Light.</li>
             </ul>
             
@@ -48,6 +66,7 @@
             <canvas width="533" height="300" id="planGrid" onclick="canvasClick(event)"></canvas><br/>
             <button type="button" onclick="help('block')">How To Use</button> (operation cheatsheet)<br/>
             <b>Zoom:</b> <input type="range" min="0" max="10" style="width: 512px;" value="7" id="zoom" onchange="setZoom()" /> <b id="mzoom">128</b> <b>| Snap:</b> <input type="range" min="0" max="8" style="width: 512px;" value="3" id="snap" onchange="setSnap()" /> <b id="msnap">8</b><br/>
+            <b>Music:</b> <input type="file" id="music" accept="audio/ogg" /> (loop point: <input type="number" id="lpoint" min="0" max="3600" value="0" step="any" />) <button type="button" onclick="upMusic(document.getElementById('music').files[0])">Upload</button> <button type="button" onclick="playMusic()"><img width="25" height="25" src="https://openclipart.org/download/235442/minimal-speaker-icon-2.svg" /></button><br/>
             <b>Next Walls' Height:</b> <input type="number" min="0.5" max="25" step="0.1" value="5" id="wsize" /><br/>
             <b>Map List Address:</b> <input type="text" id="mlhost" /> <b>Map ID:</b> <input type="text" id="m_id" /><br/>
             Map List Status:&nbsp;&nbsp;<div style="background-color: #444; color: #e7e7f0; min-width: 80em; max-width: 80em; height: 1.5em; overflow-x: hidden; font-size: 12px; padding: 1px;"><span id="mlstatus" style="font-family: 'IBM Plex Mono', sans;"></span></div>
@@ -62,6 +81,9 @@
                 <option value="test" style="font-family: monospace;">test</option>
                 <option value="brick" style="font-family: monospace;" selected>brick</option>
                 <option value="cement1" style="font-family: monospace;">cement1</option>
+                <option value="stone" style="font-family: monospace;">stone</option>
+                <option value="sdoor" style="font-family: monospace;">sdoor</option>
+                <option value="hellomouse" style="font-family: monospace;">hellomouse</option>
             </select></span><br/>
             
             <script type="text/javascript" src="./coordinate.js"></script>  

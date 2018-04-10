@@ -2,18 +2,23 @@ var fs = require('fs');
 var geom = require('./geometry.js');
 var raycaster = require('./raycaster.js');
 
-var images = {
-    sprites: {
-        sphere: fs.readFileSync('sphere.b64'),
-        bucket: fs.readFileSync('bucket.b64')
-    },
-    
-    tex: {
-        brick: fs.readFileSync('brick.b64'),
-        test: fs.readFileSync('test.b64'),
-        cement1: fs.readFileSync('cement1.b64')
-    }
-};
+
+var sprModules = require('../*.sprite.js', {mode: 'hash'});
+var texModules = require('../*.texture.js', {mode: 'hash'});
+
+images = { sprites: {}, tex: {} };
+
+for ( let i = 0; i < Object.keys(sprModules).length; i++ )
+{
+    let k = Object.keys(sprModules)[i];
+    images.sprites[k.split('.sprite')[0]] = sprModules[k];
+}
+
+for ( let i = 0; i < Object.keys(texModules).length; i++ )
+{
+    let k = Object.keys(texModules)[i];
+    images.tex[k.split('.texture')[0]] = texModules[k];
+}
 
 counter = Object.keys(images.tex).length + Object.keys(images.sprites).length;
 interval = null;
@@ -27,6 +32,9 @@ function loadVert(v)
 {
     return { x: v[0], y: v[1], z: (v[2] || null) };
 }
+
+var loadImage = new Image();
+loadImage.src = fs.readFileSync('loading.b64');
 
 function loadWalls(l)
 {
@@ -47,16 +55,57 @@ function loadWalls(l)
     return res;
 }
 
-function imageLoaded()
+mapMusic = null;
+changingMap = false;
+
+function showLoading()
 {
+    let canvas = document.getElementById('rayCanvas');
+    let ctx = canvas.getContext('2d');
+    
+    ctx.fillStyle = "rgba(0, 0, 180, 0.5)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.drawImage(loadImage, Math.max(canvas.width / 2 - 200, 0), Math.max(canvas.height / 2 - 90, 0), Math.min(400, canvas.width), Math.min(180, canvas.width));
+}
+
+function imageLoaded()
+{    
     counter--;
     
     if ( counter < 1 )
     {
         main = function main(map)
         {
+            changingMap = false;
+            
             window.d = false;
             window.l = false;
+            
+            window.game = { map: map };
+            
+            if ( mapMusic == null )
+                mapMusic = new Audio(map.music);
+            
+            else
+            {
+                mapMusic.stillLoop = false;
+                mapMusic.pause();
+                mapMusic.currentTime = 0;
+                mapMusic.src = map.music;
+            }
+            
+            mapMusic.addEventListener('ended', function() {
+                if ( this.stillLoop )
+                {
+                    this.currentTime = (+map.loopPoint) || 0.0;
+                    this.play();
+                }
+                
+            }, false);
+            
+            mapMusic.stillLoop = true;
+            mapMusic.play();
             
             if ( interval != null )
                 clearInterval(interval);
@@ -95,18 +144,38 @@ function imageLoaded()
             var ctx = cnv.getContext('2d');
             
             interval = setInterval(function() {
+                if ( document.getElementById('mlhost').value != '' )
+                    for ( let i = 0; i < sprites.length; i++ )
+                        if ( sprites[i].nextMap && geom.point.len(geom.point.sub(camPos, sprites[i].pos)) < sprites[i].radius )
+                        {
+                            document.getElementById('m_id').value = sprites[i].nextMap;
+                            download(sprites[i].nextMap);
+                            
+                            clearInterval(interval);
+                            
+                            if ( mapMusic != null )
+                            {
+                                mapMusic.stillLoop = false;
+                                mapMusic.pause();
+                                mapMusic.currentTime = 0;
+                                mapMusic.src = "";
+                            }
+                            
+                            return;
+                        }
+                
                 raycaster.raycast(cnv, walls, camPos, curAng, camFov, ctx, mapSprites, images.sprites, images.tex, lights);
                 
-                if ( checkKey(39) )
+                if ( checkKey(39) || checkKey(68) )
                     angDelta += 0.12;
                 
-                if ( checkKey(37) )
+                if ( checkKey(37) || checkKey(65) )
                     angDelta -= 0.12;
                 
-                if ( checkKey(38) )
+                if ( checkKey(38) || checkKey(87) )
                     fVel += 0.9;
                 
-                if ( checkKey(40) )
+                if ( checkKey(40) || checkKey(83) )
                     fVel -= 0.9;
                 
                 curAng += angDelta;
@@ -180,14 +249,14 @@ function imageLoaded()
 
             keyUp = function keyUp(evt)
             {
-                while ( keys.indexOf(evt.keyCode) != -1 )
-                    keys.pop(keys.indexOf(evt.keyCode));
+                while ( keys.indexOf(evt.keyCode || evt.charCode) != -1 )
+                    keys.pop(keys.indexOf(evt.keyCode || evt.charCode));
             }
 
             keyDown = function keyDown(evt)
             {
-                if ( keys.indexOf(evt.keyCode) == -1 )
-                    keys.push(evt.keyCode);
+                if ( keys.indexOf(evt.keyCode || evt.charCode) == -1 )
+                    keys.push(evt.keyCode || evt.charCode);
             }
 
             document.onkeydown = keyDown;
@@ -201,6 +270,9 @@ function imageLoaded()
             
             if ( host != '' && id != '' )
             {
+                changingMap = true;
+                showLoading();
+                
                 mapList(host, function(conn) {
                     conn.send("RETRIEVE:" + id);
                     
@@ -217,7 +289,7 @@ function imageLoaded()
                             else
                             {
                                 document.getElementById('mlstatus').innerHTML = "SUCCESS";
-                                main(JSON.parse(document.getElementById('jsonin').value = msg.slice(msg.indexOf(':') + 1)));
+                                setTimeout(function() { main(JSON.parse(msg.slice(msg.indexOf(':') + 1))) }, 0);
                             }
                         }
                     }
@@ -232,7 +304,14 @@ function imageLoaded()
         let url = new URL(location.href);
         let id = url.searchParams.get("mapid");
         let mlhost = url.searchParams.get("maplist");
-        let map = url.searchParams.get("mjson");
+        
+        var map = url.searchParams.get("mjson");
+        
+        let _canvas = document.getElementById('rayCanvas');
+        let _ctx = _canvas.getContext('2d');
+        
+        _ctx.fillStyle = "black";
+        _ctx.fillRect(0, 0, _canvas.width, _canvas.height);
         
         if ( id != null && mlhost != null )
         {
@@ -269,41 +348,44 @@ function mapList(host, callback)
     }
 }
 
-for ( let i = 0; i < Object.keys(images.tex).length; i++ )
+ready = function ready()
 {
-    let k = Object.keys(images.tex)[i];
-    let src = images.tex[k];
-    
-    images.tex[k] = new Image();
-    images.tex[k].onload = function() {
-        /*
-        let tex = images.tex[k];
-        let tc = document.createElement('canvas');
-        let tctx = tc.getContext('2d');
+    for ( let i = 0; i < Object.keys(images.tex).length; i++ )
+    {
+        let k = Object.keys(images.tex)[i];
+        let src = images.tex[k];
         
-        tc.width = tex.width;
-        tc.height = tex.height;
-        
-        tctx.drawImage(tex, 0, 0, tex.width, tex.height);
-        
-        images.tex[k] = {
-            image: images.tex[k],
-            canvas: tc,
-            ctx: tctx
+        images.tex[k] = new Image();
+        images.tex[k].onload = function() {
+            /*
+            let tex = images.tex[k];
+            let tc = document.createElement('canvas');
+            let tctx = tc.getContext('2d');
+            
+            tc.width = tex.width;
+            tc.height = tex.height;
+            
+            tctx.drawImage(tex, 0, 0, tex.width, tex.height);
+            
+            images.tex[k] = {
+                image: images.tex[k],
+                canvas: tc,
+                ctx: tctx
+            };
+            */
+            
+            imageLoaded();
         };
-        */
-        
-        imageLoaded();
-    };
-    images.tex[k].src = src;
-}
+        images.tex[k].src = src;
+    }
 
-for ( let i = 0; i < Object.keys(images.sprites).length; i++ )
-{
-    let k = Object.keys(images.sprites)[i];
-    let src = images.sprites[k];
-    
-    images.sprites[k] = new Image();
-    images.sprites[k].onload = imageLoaded;
-    images.sprites[k].src = src;
+    for ( let i = 0; i < Object.keys(images.sprites).length; i++ )
+    {
+        let k = Object.keys(images.sprites)[i];
+        let src = images.sprites[k];
+        
+        images.sprites[k] = new Image();
+        images.sprites[k].onload = imageLoaded;
+        images.sprites[k].src = src;
+    }
 }

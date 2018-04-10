@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<html>
+<html style="width: 100%; height: 100%">
     <head>
         <meta charset="utf-8" />
         <title>Rayus</title>
@@ -17,16 +17,17 @@
         </style>
     </head>
     
-    <body>
+    <body style="margin: 0px; font-family: sans; color: white; background-color: black; width: 100%; height: 100%; display: flex; flex-direction: column;">
         <script type="text/javascript" src="./bundle.js"></script>
-        <canvas width="968" height="480" id="rayCanvas"></canvas>
+        <div style="width: 98%; flex-grow: 1; height: 93%; flex-shrink: 0.5;">
+        <canvas width="1024" style="width: 100%; height: 97%; border: 3px groove #878077; margin: 3px;" height="480" id="rayCanvas"></canvas>
+        </div>
         
-        <br/>
+        <textarea id="jsonin" hidden></textarea>
+        <div style="margin-top: 0px;">
+        <b>Map List Address:</b> <input type="text" id="mlhost" /> <b>Map ID:</b> <input type="text" id="m_id" /> <button type="button" onclick="download()">Download MapID</button> Status:&nbsp;&nbsp;<span id="mlstatus" style="display: inline-block; font-family: monospace; background-color: #444; color: #e7e7f0; width: 25em; height: 17px; overflow-x: hidden; font-size: 17px; padding: 1px;"></span><br/>
+        </div>
         
-        <b>JSON Map Import:</b><br/>
-        <textarea rows="2" cols="105" id="jsonin"></textarea>
-        <button onclick="main(JSON.parse(document.getElementById('jsonin').value));">Import JSON</button><br/>
-        <b>Map List Address:</b> <input type="text" id="mlhost" /> <b>Map ID:</b> <input type="text" id="m_id" /> <button type="button" onclick="download()">Download MapID</button> Status:&nbsp;&nbsp;<span id="mlstatus" style="display: inline-block; font-family: monospace; background-color: #444; color: #e7e7f0; width: 25em; height: 17px; overflow-x: hidden; font-size: 17px; padding: 1px;"></span>
-        <a href="coordinate.html">Editor</a>
+        <script>ready();</script>
     </body>
 </html>
